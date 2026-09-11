@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  /* Palette — claire et professionnelle, accent turquoise → émeraude */
+  --color-bg: #ffffff;
+  --color-bg-page: #f5f5f8;
+  --color-surface: #ffffff;
+  --color-border: #ececf1;
+  --color-border-strong: #e1e0e7;
+  --color-text: #17151c;
+  --color-text-muted: #6c6b76;
+  --color-text-faint: #9f9da8;
+
+  --color-brand-1: #1fd1b8;
+  --color-brand-2: #0fae6b;
+  --color-brand-solid: #0e9b78;
+  --color-brand-tint: #e9fbf4;
+
+  --font-display: var(--font-jakarta), system-ui, -apple-system, sans-serif;
+  --font-body: var(--font-jakarta), system-ui, -apple-system, sans-serif;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-bg-page);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+.brand-gradient {
+  background-image: linear-gradient(135deg, var(--color-brand-1), var(--color-brand-2));
+}
+
+.brand-text {
+  background-image: linear-gradient(135deg, var(--color-brand-1), var(--color-brand-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+}
+
+::selection {
+  background-color: var(--color-brand-1);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand-solid);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
