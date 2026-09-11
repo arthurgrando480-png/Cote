@@ -58,11 +58,13 @@ export default function UploadForm({ userId }: { userId: string }) {
       return;
     }
 
-    const { error: insertError } = await supabase
+    const { data: inserted, error: insertError } = await supabase
       .from("photos")
-      .insert({ owner_id: userId, storage_path: path });
+      .insert({ owner_id: userId, storage_path: path })
+      .select("id")
+      .single();
 
-    if (insertError) {
+    if (insertError || !inserted) {
       setError(
         "La photo est envoyée mais n'a pas pu être enregistrée. Contacte le support."
       );
@@ -70,11 +72,34 @@ export default function UploadForm({ userId }: { userId: string }) {
       return;
     }
 
+    // Modération automatique : la photo reste invisible des autres tant
+    // qu'elle n'est pas approuvée (voir /api/moderate-photo).
+    let moderationStatus: "approved" | "rejected" = "approved";
+    try {
+      const res = await fetch("/api/moderate-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoId: inserted.id }),
+      });
+      const data = await res.json();
+      if (data.status === "rejected") moderationStatus = "rejected";
+    } catch {
+      moderationStatus = "approved";
+    }
+
     setLoading(false);
-    setSuccess(true);
     setFile(null);
     setPreview(null);
     if (inputRef.current) inputRef.current.value = "";
+
+    if (moderationStatus === "rejected") {
+      setError(
+        "Cette photo a été refusée par la modération automatique (contenu non autorisé)."
+      );
+      return;
+    }
+
+    setSuccess(true);
     router.refresh();
   }
 
