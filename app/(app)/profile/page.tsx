@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DeletePhotoButton from "@/components/DeletePhotoButton";
+import PendingPhotoRetry from "@/components/PendingPhotoRetry";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -23,6 +24,9 @@ export default async function ProfilePage() {
     .order("created_at", { ascending: false });
 
   const photoIds = (photos ?? []).map((p) => p.id as string);
+  const pendingIds = (photos ?? [])
+    .filter((p) => p.moderation_status === "pending")
+    .map((p) => p.id as string);
 
   const { data: ratings } = photoIds.length
     ? await supabase
@@ -42,6 +46,8 @@ export default async function ProfilePage() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pt-5">
+      <PendingPhotoRetry photoIds={pendingIds} />
+
       <div className="px-5">
         <p className="text-[11px] font-bold uppercase tracking-widest text-text-faint">
           Mon profil
