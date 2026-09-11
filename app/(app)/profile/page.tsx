@@ -18,7 +18,7 @@ export default async function ProfilePage() {
 
   const { data: photos } = await supabase
     .from("photos")
-    .select("id, storage_path, created_at")
+    .select("id, storage_path, created_at, moderation_status")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -73,14 +73,26 @@ export default async function ProfilePage() {
                   alt=""
                   className="h-full w-full object-cover"
                 />
-                <span className="absolute bottom-1.5 left-1.5 flex items-baseline gap-1 rounded-full bg-black/55 px-2 py-[3px] text-[11px] font-extrabold text-white backdrop-blur-sm [font-variant-numeric:tabular-nums]">
-                  {stats ? (stats.sum / stats.count).toFixed(1) : "—"}
-                  {stats && (
-                    <span className="text-[9px] font-semibold opacity-80">
-                      · {stats.count}
-                    </span>
-                  )}
-                </span>
+                {photo.moderation_status === "pending" && (
+                  <span className="absolute bottom-1.5 left-1.5 rounded-full bg-black/55 px-2 py-[3px] text-[11px] font-extrabold text-white backdrop-blur-sm">
+                    En modération
+                  </span>
+                )}
+                {photo.moderation_status === "rejected" && (
+                  <span className="absolute bottom-1.5 left-1.5 rounded-full bg-red-500/80 px-2 py-[3px] text-[11px] font-extrabold text-white backdrop-blur-sm">
+                    Refusée
+                  </span>
+                )}
+                {photo.moderation_status === "approved" && (
+                  <span className="absolute bottom-1.5 left-1.5 flex items-baseline gap-1 rounded-full bg-black/55 px-2 py-[3px] text-[11px] font-extrabold text-white backdrop-blur-sm [font-variant-numeric:tabular-nums]">
+                    {stats ? (stats.sum / stats.count).toFixed(1) : "—"}
+                    {stats && (
+                      <span className="text-[9px] font-semibold opacity-80">
+                        · {stats.count}
+                      </span>
+                    )}
+                  </span>
+                )}
                 <DeletePhotoButton
                   photoId={photo.id as string}
                   storagePath={photo.storage_path as string}
