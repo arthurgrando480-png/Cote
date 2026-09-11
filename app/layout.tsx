@@ -20,7 +20,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" className={jakarta.variable}>
-      <body>{children}</body>
+      <body className="bg-bg-page">
+        <div className="mx-auto min-h-dvh w-full max-w-[480px] bg-bg">
+          {children}
+        </div>
+      </body>
     </html>
   );
 }
