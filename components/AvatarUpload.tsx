@@ -4,6 +4,34 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+const MAX_DIMENSION = 400; // px — un avatar ne s'affiche jamais très grand
+
+function resizeAvatar(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height));
+      const outW = Math.round(img.width * scale);
+      const outH = Math.round(img.height * scale);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = outW;
+      canvas.height = outH;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("canvas indisponible"));
+      ctx.drawImage(img, 0, 0, outW, outH);
+
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("échec du rendu"))),
+        "image/jpeg",
+        0.85
+      );
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 export default function AvatarUpload({
   userId,
   avatarUrl,
@@ -24,19 +52,27 @@ export default function AvatarUpload({
     const localUrl = URL.createObjectURL(file);
     setPreview(localUrl);
 
-    const ext = file.name.split(".").pop() || "jpg";
-    const path = `${userId}/avatar-${Date.now()}.${ext}`;
+    let toUpload: Blob;
+    try {
+      toUpload = await resizeAvatar(file);
+    } catch {
+      setLoading(false);
+      return;
+    }
+
+    const path = `${userId}/avatar-${Date.now()}.jpg`;
 
     const { error: uploadError } = await supabase.storage
       .from("photos")
-      .upload(path, file, { cacheControl: "3600", upsert: false });
+      .upload(path, toUpload, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: "image/jpeg",
+      });
 
     if (!uploadError) {
       const { data: urlData } = supabase.storage.from("photos").getPublicUrl(path);
-      await supabase
-        .from("profiles")
-        .update({ avatar_url: urlData.publicUrl })
-        .eq("id", userId);
+      await supabase.from("profiles").update({ avatar_url: urlData.publicUrl }).eq("id", userId);
       router.refresh();
     }
 

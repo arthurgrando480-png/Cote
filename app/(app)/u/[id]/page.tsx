@@ -2,6 +2,13 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import ProfileGrid, { type GridPhoto } from "@/components/ProfileGrid";
 
+type PhotoStatsRow = {
+  photo_id: string;
+  avg_score: string | number | null;
+  vote_count: number;
+  distribution: number[];
+};
+
 export default async function VisitedProfilePage({
   params,
 }: {
@@ -34,17 +41,13 @@ export default async function VisitedProfilePage({
 
   const photoIds = (photos ?? []).map((p) => p.id as string);
 
-  const { data: ratings } = photoIds.length
-    ? await supabase.from("ratings").select("photo_id, score").in("photo_id", photoIds)
-    : { data: [] as { photo_id: string; score: number | null }[] };
+  const { data: statsRows } = photoIds.length
+    ? await supabase.rpc("get_photo_stats", { p_photo_ids: photoIds })
+    : { data: [] as PhotoStatsRow[] };
 
-  const statsByPhoto = new Map<string, { sum: number; count: number }>();
-  for (const r of ratings ?? []) {
-    if (r.score === null) continue;
-    const s = statsByPhoto.get(r.photo_id as string) ?? { sum: 0, count: 0 };
-    s.sum += r.score as number;
-    s.count += 1;
-    statsByPhoto.set(r.photo_id as string, s);
+  const statsByPhoto = new Map<string, PhotoStatsRow>();
+  for (const row of (statsRows ?? []) as PhotoStatsRow[]) {
+    statsByPhoto.set(row.photo_id, row);
   }
 
   const gridPhotos: GridPhoto[] = (photos ?? []).map((photo) => {
@@ -52,14 +55,16 @@ export default async function VisitedProfilePage({
     const { data: urlData } = supabase.storage
       .from("photos")
       .getPublicUrl(photo.storage_path as string);
+    const voteCount = stats?.vote_count ?? 0;
     return {
       id: photo.id as string,
       url: urlData.publicUrl,
       storagePath: photo.storage_path as string,
       createdAt: photo.created_at as string,
       moderationStatus: "approved",
-      score: stats ? stats.sum / stats.count : null,
-      votes: stats?.count ?? 0,
+      score: voteCount > 0 ? parseFloat(String(stats?.avg_score)) : null,
+      votes: voteCount,
+      distribution: stats?.distribution ?? new Array(10).fill(0),
     };
   });
 

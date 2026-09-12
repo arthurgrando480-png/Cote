@@ -4,26 +4,40 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-const MAX_SIZE = 8 * 1024 * 1024; // 8 Mo
+const MAX_SIZE = 16 * 1024 * 1024; // 16 Mo à l'envoi (avant redimensionnement)
+const MAX_DIMENSION = 1600; // px sur le plus grand côté, une fois traitée
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 
-function rotateFile(file: File, degrees: number): Promise<Blob> {
+// Combine rotation et redimensionnement en une seule passe, et ré-encode
+// toujours en JPEG (le format le plus efficace pour des photos).
+function prepareImageForUpload(file: File, degrees: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const swap = degrees % 180 !== 0;
+      const rotatedW = swap ? img.height : img.width;
+      const rotatedH = swap ? img.width : img.height;
+
+      const scale = Math.min(1, MAX_DIMENSION / Math.max(rotatedW, rotatedH));
+      const outW = Math.round(rotatedW * scale);
+      const outH = Math.round(rotatedH * scale);
+
       const canvas = document.createElement("canvas");
-      canvas.width = swap ? img.height : img.width;
-      canvas.height = swap ? img.width : img.height;
+      canvas.width = outW;
+      canvas.height = outH;
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("canvas indisponible"));
-      ctx.translate(canvas.width / 2, canvas.height / 2);
+
+      ctx.translate(outW / 2, outH / 2);
       ctx.rotate((degrees * Math.PI) / 180);
-      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      const drawW = img.width * scale;
+      const drawH = img.height * scale;
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+
       canvas.toBlob(
         (blob) => (blob ? resolve(blob) : reject(new Error("échec du rendu"))),
-        file.type || "image/jpeg",
-        0.92
+        "image/jpeg",
+        0.85
       );
     };
     img.onerror = reject;
@@ -56,7 +70,7 @@ export default function UploadForm({ userId }: { userId: string }) {
       return;
     }
     if (f.size > MAX_SIZE) {
-      setError("La photo dépasse 8 Mo.");
+      setError("La photo dépasse 16 Mo.");
       return;
     }
     setFile(f);
@@ -69,23 +83,24 @@ export default function UploadForm({ userId }: { userId: string }) {
     setLoading(true);
     setError(null);
 
-    let toUpload: File | Blob = file;
-    if (rotation !== 0) {
-      try {
-        toUpload = await rotateFile(file, rotation);
-      } catch {
-        setError("La rotation a échoué. Réessaie.");
-        setLoading(false);
-        return;
-      }
+    let toUpload: Blob;
+    try {
+      toUpload = await prepareImageForUpload(file, rotation);
+    } catch {
+      setError("Le traitement de l'image a échoué. Réessaie.");
+      setLoading(false);
+      return;
     }
 
-    const ext = file.name.split(".").pop() || "jpg";
-    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
 
     const { error: uploadError } = await supabase.storage
       .from("photos")
-      .upload(path, toUpload, { cacheControl: "3600", upsert: false });
+      .upload(path, toUpload, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: "image/jpeg",
+      });
 
     if (uploadError) {
       setError("L'envoi a échoué. Réessaie dans un instant.");
@@ -155,7 +170,7 @@ export default function UploadForm({ userId }: { userId: string }) {
                 <rect x="3" y="16" width="18" height="5" rx="2" />
               </svg>
               <span className="font-bold text-text">Choisis une photo</span>
-              <span className="text-[11px] text-text-faint">JPEG, PNG ou WebP — 8 Mo max</span>
+              <span className="text-[11px] text-text-faint">JPEG, PNG ou WebP — 16 Mo max</span>
             </span>
           )}
         </label>
