@@ -16,11 +16,9 @@ export default async function AppLayout({
   if (!user) redirect("/login");
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex h-dvh flex-col overflow-hidden">
       <TopHeader />
-      <main className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex flex-1 flex-col overflow-y-auto">{children}</div>
-      </main>
+      <div className="flex flex-1 flex-col overflow-y-auto">{children}</div>
       <BottomTabBar />
     </div>
   );
