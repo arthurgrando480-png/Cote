@@ -28,8 +28,6 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // IMPORTANT : ne pas retirer ce getUser(). Il rafraîchit le token
-  // et doit être appelé avant toute logique de redirection.
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// Seuils de refus. Sightengine recommande 0.5 comme seuil de départ pour le
-// gore ; on applique la même logique aux catégories de nudité les plus
-// explicites. À ajuster si besoin une fois que tu as un peu de recul.
 const NUDITY_THRESHOLD = 0.5;
 const GORE_THRESHOLD = 0.5;
 
@@ -24,8 +21,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
   }
 
-  // On relit la photo via le client de l'utilisateur : la RLS garantit déjà
-  // qu'il ne peut voir/toucher que sa propre photo à ce stade (pending).
   const { data: photo, error: photoError } = await supabase
     .from("photos")
     .select("id, owner_id, storage_path")
@@ -44,8 +39,6 @@ export async function POST(request: Request) {
   const apiUser = process.env.SIGHTENGINE_API_USER;
   const apiSecret = process.env.SIGHTENGINE_API_SECRET;
 
-  // Si la modération n'est pas encore configurée (clés absentes), on
-  // approuve par défaut pour ne pas bloquer la publication.
   if (!apiUser || !apiSecret) {
     const { error: updateError } = await admin
       .from("photos")
@@ -68,14 +61,8 @@ export async function POST(request: Request) {
       api_secret: apiSecret,
     });
 
-    const res = await fetch(
-      `https://api.sightengine.com/1.0/check.json?${params.toString()}`
-    );
+    const res = await fetch(`https://api.sightengine.com/1.0/check.json?${params.toString()}`);
     const result = await res.json();
-
-    if (result.status !== "success") {
-      console.error("Réponse Sightengine inattendue:", JSON.stringify(result));
-    }
 
     const nudity = result?.nudity ?? {};
     const gore = result?.gore ?? {};
@@ -89,8 +76,6 @@ export async function POST(request: Request) {
 
     status = isExplicit || isGraphic ? "rejected" : "approved";
   } catch (err) {
-    // Panne de l'API de modération : on n'empêche pas la publication pour
-    // autant, mais on le journalise pour pouvoir vérifier plus tard.
     console.error("Erreur modération Sightengine:", err);
     status = "approved";
   }
@@ -102,10 +87,7 @@ export async function POST(request: Request) {
 
   if (updateError) {
     console.error("Échec mise à jour du statut de modération:", updateError);
-    return NextResponse.json(
-      { status: "pending", error: updateError.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ status: "pending", error: updateError.message }, { status: 500 });
   }
 
   if (status === "rejected") {

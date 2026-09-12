@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
 @theme {
-  /* Palette — claire et professionnelle, accent turquoise → émeraude */
   --color-bg: #ffffff;
   --color-bg-page: #f5f5f8;
   --color-surface: #ffffff;
@@ -20,14 +19,30 @@
   --font-body: var(--font-jakarta), system-ui, -apple-system, sans-serif;
 }
 
+html.dark {
+  --color-bg: #16171b;
+  --color-bg-page: #0c0d10;
+  --color-surface: #1c1d22;
+  --color-border: #2a2b31;
+  --color-border-strong: #383941;
+  --color-text: #f2f2f4;
+  --color-text-muted: #a9a9b2;
+  --color-text-faint: #75757e;
+  --color-brand-tint: rgba(31, 209, 184, 0.14);
+}
+
 html {
   color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
 }
 
 body {
   background-color: var(--color-bg-page);
   color: var(--color-text);
   font-family: var(--font-body);
+  transition: background-color .2s, color .2s;
 }
 
 .brand-gradient {

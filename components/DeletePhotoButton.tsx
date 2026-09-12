@@ -30,7 +30,7 @@ export default function DeletePhotoButton({
       onClick={handleDelete}
       disabled={loading}
       aria-label="Supprimer"
-      className="absolute right-1.5 top-1.5 flex h-[26px] w-[26px] items-center justify-center rounded-full bg-black/50 text-white transition-colors hover:bg-black/75 disabled:opacity-50"
+      className="absolute right-1.5 top-1.5 z-[2] flex h-[26px] w-[26px] items-center justify-center rounded-full bg-black/50 text-white transition-colors hover:bg-black/75 disabled:opacity-50"
     >
       {loading ? (
         <span className="text-[9px] font-bold">…</span>

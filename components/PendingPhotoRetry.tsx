@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 
 // Relance discrètement la vérification pour toute photo restée "en attente" —
 // utile quand la vérification initiale a été interrompue (appli fermée,
-// connexion coupée juste après la publication). Ne fait rien si tout est déjà
-// à jour ; rafraîchit la page uniquement si un statut a changé.
+// connexion coupée juste après la publication).
 export default function PendingPhotoRetry({ photoIds }: { photoIds: string[] }) {
   const router = useRouter();
   const hasRun = useRef(false);

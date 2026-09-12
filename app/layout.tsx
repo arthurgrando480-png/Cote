@@ -13,6 +13,17 @@ export const metadata: Metadata = {
   description: "Publie tes photos, note celles des autres, découvre ta cote.",
 };
 
+const themeInitScript = `
+(function () {
+  try {
+    var saved = localStorage.getItem("cote-theme");
+    if (saved === "dark") {
+      document.documentElement.classList.add("dark");
+    }
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: {
@@ -20,6 +31,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" className={jakarta.variable}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="bg-bg-page">
         <div className="mx-auto min-h-dvh w-full max-w-[480px] bg-bg">
           {children}

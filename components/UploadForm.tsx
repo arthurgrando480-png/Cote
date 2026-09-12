@@ -7,12 +7,37 @@ import { createClient } from "@/lib/supabase/client";
 const MAX_SIZE = 8 * 1024 * 1024; // 8 Mo
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 
+function rotateFile(file: File, degrees: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const swap = degrees % 180 !== 0;
+      const canvas = document.createElement("canvas");
+      canvas.width = swap ? img.height : img.width;
+      canvas.height = swap ? img.width : img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("canvas indisponible"));
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((degrees * Math.PI) / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("échec du rendu"))),
+        file.type || "image/jpeg",
+        0.92
+      );
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 export default function UploadForm({ userId }: { userId: string }) {
   const [supabase] = useState(() => createClient());
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [rotation, setRotation] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -20,6 +45,7 @@ export default function UploadForm({ userId }: { userId: string }) {
   function handleFile(f: File | null) {
     setError(null);
     setSuccess(false);
+    setRotation(0);
     if (!f) {
       setFile(null);
       setPreview(null);
@@ -43,14 +69,23 @@ export default function UploadForm({ userId }: { userId: string }) {
     setLoading(true);
     setError(null);
 
+    let toUpload: File | Blob = file;
+    if (rotation !== 0) {
+      try {
+        toUpload = await rotateFile(file, rotation);
+      } catch {
+        setError("La rotation a échoué. Réessaie.");
+        setLoading(false);
+        return;
+      }
+    }
+
     const ext = file.name.split(".").pop() || "jpg";
-    const path = `${userId}/${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}.${ext}`;
+    const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("photos")
-      .upload(path, file, { cacheControl: "3600", upsert: false });
+      .upload(path, toUpload, { cacheControl: "3600", upsert: false });
 
     if (uploadError) {
       setError("L'envoi a échoué. Réessaie dans un instant.");
@@ -65,15 +100,11 @@ export default function UploadForm({ userId }: { userId: string }) {
       .single();
 
     if (insertError || !inserted) {
-      setError(
-        "La photo est envoyée mais n'a pas pu être enregistrée. Contacte le support."
-      );
+      setError("La photo est envoyée mais n'a pas pu être enregistrée. Contacte le support.");
       setLoading(false);
       return;
     }
 
-    // Modération automatique : la photo reste invisible des autres tant
-    // qu'elle n'est pas approuvée (voir /api/moderate-photo).
     let moderationStatus: "approved" | "rejected" = "approved";
     try {
       const res = await fetch("/api/moderate-photo", {
@@ -90,12 +121,11 @@ export default function UploadForm({ userId }: { userId: string }) {
     setLoading(false);
     setFile(null);
     setPreview(null);
+    setRotation(0);
     if (inputRef.current) inputRef.current.value = "";
 
     if (moderationStatus === "rejected") {
-      setError(
-        "Cette photo a été refusée par la modération automatique (contenu non autorisé)."
-      );
+      setError("Cette photo a été refusée par la modération automatique (contenu non autorisé).");
       return;
     }
 
@@ -104,32 +134,46 @@ export default function UploadForm({ userId }: { userId: string }) {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex w-full max-w-sm flex-col items-center gap-5"
-    >
-      <label
-        htmlFor="photo"
-        className="flex aspect-[3/4] w-full max-w-[250px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-[20px] border-[1.5px] border-dashed border-border-strong bg-bg-page text-center transition-colors hover:border-brand-solid hover:bg-brand-tint"
-      >
-        {preview ? (
-          <img
-            src={preview}
-            alt="Aperçu"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <span className="flex flex-col items-center gap-1 px-6 text-text-muted">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="mb-1.5 h-[30px] w-[30px] text-text-faint">
-              <path d="M12 16V4" />
-              <path d="M7 9l5-5 5 5" />
-              <rect x="3" y="16" width="18" height="5" rx="2" />
+    <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col items-center gap-5">
+      <div className="relative aspect-[3/4] w-full max-w-[250px] overflow-hidden rounded-[20px] border-[1.5px] border-dashed border-border-strong bg-bg-page">
+        <label
+          htmlFor="photo"
+          className="flex h-full w-full cursor-pointer flex-col items-center justify-center text-center transition-colors hover:border-brand-solid hover:bg-brand-tint"
+        >
+          {preview ? (
+            <img
+              src={preview}
+              alt="Aperçu"
+              style={{ transform: `rotate(${rotation}deg)` }}
+              className="h-full w-full object-cover transition-transform"
+            />
+          ) : (
+            <span className="flex flex-col items-center gap-1 px-6 text-text-muted">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="mb-1.5 h-[30px] w-[30px] text-text-faint">
+                <path d="M12 16V4" />
+                <path d="M7 9l5-5 5 5" />
+                <rect x="3" y="16" width="18" height="5" rx="2" />
+              </svg>
+              <span className="font-bold text-text">Choisis une photo</span>
+              <span className="text-[11px] text-text-faint">JPEG, PNG ou WebP — 8 Mo max</span>
+            </span>
+          )}
+        </label>
+        {preview && (
+          <button
+            type="button"
+            onClick={() => setRotation((r) => (r + 90) % 360)}
+            aria-label="Pivoter la photo"
+            title="Pivoter"
+            className="absolute right-2 top-2 z-[2] flex h-[34px] w-[34px] items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/75"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[17px] w-[17px]">
+              <path d="M21 12a9 9 0 1 1-3.2-6.9" />
+              <polyline points="21 3 21 9 15 9" />
             </svg>
-            <span className="font-bold text-text">Choisis une photo</span>
-            <span className="text-[11px] text-text-faint">JPEG, PNG ou WebP — 8 Mo max</span>
-          </span>
+          </button>
         )}
-      </label>
+      </div>
       <input
         ref={inputRef}
         id="photo"

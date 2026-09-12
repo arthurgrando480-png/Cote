@@ -1,7 +1,11 @@
 import Link from "next/link";
-import Image from "next/image";
 
-const DEMO_SCORES = Array.from({ length: 10 }, (_, i) => i + 1);
+const SCORES = Array.from({ length: 10 }, (_, i) => i + 1);
+
+function greenShade(n: number) {
+  const lightness = 20 + ((78 - 20) * (n - 1)) / 9;
+  return `hsl(152, 60%, ${lightness.toFixed(0)}%)`;
+}
 
 export default function HomePage() {
   return (
@@ -17,20 +21,18 @@ export default function HomePage() {
         </p>
       </div>
 
-      <div
-        className="flex flex-wrap items-end justify-center gap-1.5"
-        aria-hidden="true"
-      >
-        {DEMO_SCORES.map((n) => (
-          <div
+      <div className="flex w-full max-w-[280px] overflow-hidden rounded-full shadow-[0_12px_26px_rgba(0,0,0,.25)]" aria-hidden="true">
+        {SCORES.map((n) => (
+          <span
             key={n}
-            className={`relative h-13 w-10 transition-transform ${
-              n === 7 ? "-translate-y-1 scale-[1.18]" : ""
-            }`}
-            style={{ height: "52px" }}
+            className="flex h-10 min-w-0 flex-1 items-center justify-center border-r border-black/[.18] text-sm font-extrabold text-white last:border-r-0"
+            style={{
+              background: `linear-gradient(to bottom, rgba(255,255,255,.24), rgba(255,255,255,0) 45%), ${greenShade(n)}`,
+              textShadow: "0 1px 2px rgba(0,0,0,.35)",
+            }}
           >
-            <Image src={`/orbs/ball-${n}.png`} alt="" fill sizes="40px" className="object-contain" />
-          </div>
+            {n}
+          </span>
         ))}
       </div>
 

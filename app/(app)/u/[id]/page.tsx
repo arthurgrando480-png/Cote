@@ -1,10 +1,13 @@
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import AvatarUpload from "@/components/AvatarUpload";
 import ProfileGrid, { type GridPhoto } from "@/components/ProfileGrid";
-import PendingPhotoRetry from "@/components/PendingPhotoRetry";
 
-export default async function ProfilePage() {
+export default async function VisitedProfilePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -12,22 +15,24 @@ export default async function ProfilePage() {
 
   if (!user) redirect("/login");
 
+  if (id === user.id) redirect("/profile");
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("pseudo, avatar_url")
-    .eq("id", user.id)
+    .eq("id", id)
     .single();
+
+  if (!profile) notFound();
 
   const { data: photos } = await supabase
     .from("photos")
     .select("id, storage_path, created_at, moderation_status")
-    .eq("owner_id", user.id)
+    .eq("owner_id", id)
+    .eq("moderation_status", "approved")
     .order("created_at", { ascending: false });
 
   const photoIds = (photos ?? []).map((p) => p.id as string);
-  const pendingIds = (photos ?? [])
-    .filter((p) => p.moderation_status === "pending")
-    .map((p) => p.id as string);
 
   const { data: ratings } = photoIds.length
     ? await supabase.from("ratings").select("photo_id, score").in("photo_id", photoIds)
@@ -52,7 +57,7 @@ export default async function ProfilePage() {
       url: urlData.publicUrl,
       storagePath: photo.storage_path as string,
       createdAt: photo.created_at as string,
-      moderationStatus: photo.moderation_status as GridPhoto["moderationStatus"],
+      moderationStatus: "approved",
       score: stats ? stats.sum / stats.count : null,
       votes: stats?.count ?? 0,
     };
@@ -60,21 +65,24 @@ export default async function ProfilePage() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 pt-5">
-      <PendingPhotoRetry photoIds={pendingIds} />
-
       <div className="flex items-center gap-3.5 px-5">
-        <AvatarUpload userId={user.id} avatarUrl={profile?.avatar_url ?? null} />
+        <span
+          className="block h-16 w-16 flex-shrink-0 rounded-full border border-border bg-bg-page bg-cover bg-center brand-gradient"
+          style={
+            profile.avatar_url ? { backgroundImage: `url(${profile.avatar_url})` } : undefined
+          }
+        />
         <div className="flex flex-col">
           <p className="text-[11px] font-bold uppercase tracking-widest text-text-faint">
-            Mon profil
+            Profil
           </p>
           <h1 className="text-2xl font-extrabold tracking-tight text-text">
-            {profile?.pseudo ?? user.email}
+            {profile.pseudo}
           </h1>
         </div>
       </div>
 
-      <ProfileGrid photos={gridPhotos} editable />
+      <ProfileGrid photos={gridPhotos} editable={false} />
     </div>
   );
 }
