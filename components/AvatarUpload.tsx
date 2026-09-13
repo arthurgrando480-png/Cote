@@ -6,30 +6,62 @@ import { createClient } from "@/lib/supabase/client";
 
 const MAX_DIMENSION = 400; // px — un avatar ne s'affiche jamais très grand
 
-function resizeAvatar(file: File): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height));
-      const outW = Math.round(img.width * scale);
-      const outH = Math.round(img.height * scale);
+type DecodedImage = {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  close?: () => void;
+};
 
-      const canvas = document.createElement("canvas");
-      canvas.width = outW;
-      canvas.height = outH;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("canvas indisponible"));
-      ctx.drawImage(img, 0, 0, outW, outH);
+async function decodeImage(file: File): Promise<DecodedImage> {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return { source: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close() };
+    } catch (err) {
+      console.warn("Décodage direct impossible, nouvelle tentative en mode économe :", err);
+    }
+    try {
+      const bitmap = await createImageBitmap(file, { resizeWidth: 1200, resizeQuality: "medium" });
+      return { source: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close() };
+    } catch (err) {
+      console.warn("Décodage économe impossible, repli sur la méthode classique :", err);
+    }
+  }
 
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = reject;
+    el.src = URL.createObjectURL(file);
+  });
+  return { source: img, width: img.naturalWidth, height: img.naturalHeight };
+}
+
+async function resizeAvatar(file: File): Promise<Blob> {
+  const decoded = await decodeImage(file);
+  try {
+    const scale = Math.min(1, MAX_DIMENSION / Math.max(decoded.width, decoded.height));
+    const outW = Math.round(decoded.width * scale);
+    const outH = Math.round(decoded.height * scale);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas indisponible");
+    ctx.drawImage(decoded.source, 0, 0, outW, outH);
+
+    return await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
         (blob) => (blob ? resolve(blob) : reject(new Error("échec du rendu"))),
         "image/jpeg",
         0.85
       );
-    };
-    img.onerror = reject;
-    img.src = URL.createObjectURL(file);
-  });
+    });
+  } finally {
+    decoded.close?.();
+  }
 }
 
 export default function AvatarUpload({
@@ -44,10 +76,12 @@ export default function AvatarUpload({
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(avatarUrl);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleFile(file: File | null) {
     if (!file) return;
     setLoading(true);
+    setError(null);
 
     const localUrl = URL.createObjectURL(file);
     setPreview(localUrl);
@@ -55,7 +89,10 @@ export default function AvatarUpload({
     let toUpload: Blob;
     try {
       toUpload = await resizeAvatar(file);
-    } catch {
+    } catch (err) {
+      const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      console.error("Traitement de la photo de profil impossible :", err);
+      setError(`Cette photo n'a pas pu être traitée. Détail : ${detail}`);
       setLoading(false);
       return;
     }
@@ -70,12 +107,15 @@ export default function AvatarUpload({
         contentType: "image/jpeg",
       });
 
-    if (!uploadError) {
-      const { data: urlData } = supabase.storage.from("photos").getPublicUrl(path);
-      await supabase.from("profiles").update({ avatar_url: urlData.publicUrl }).eq("id", userId);
-      router.refresh();
+    if (uploadError) {
+      setError("L'envoi a échoué. Réessaie dans un instant.");
+      setLoading(false);
+      return;
     }
 
+    const { data: urlData } = supabase.storage.from("photos").getPublicUrl(path);
+    await supabase.from("profiles").update({ avatar_url: urlData.publicUrl }).eq("id", userId);
+    router.refresh();
     setLoading(false);
   }
 
@@ -105,6 +145,7 @@ export default function AvatarUpload({
         className="sr-only"
         onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
       />
+      {error && <p className="mt-1 max-w-[140px] text-[11px] font-semibold text-red-500">{error}</p>}
     </div>
   );
 }

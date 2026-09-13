@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import ScoreBoard from "./ScoreBoard";
@@ -32,6 +32,15 @@ export default function RatingFeed({ userId }: { userId: string }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [zoomedIn, setZoomedIn] = useState(false);
+  const friendIdsRef = useRef<Set<string> | null>(null);
+
+  const getFriendIds = useCallback(async () => {
+    if (friendIdsRef.current) return friendIdsRef.current;
+    const { data } = await supabase.rpc("get_friend_ids", { u: userId });
+    const set = new Set<string>((data ?? []).map((r: { friend_id: string }) => r.friend_id));
+    friendIdsRef.current = set;
+    return set;
+  }, [supabase, userId]);
 
   const loadNext = useCallback(async () => {
     setLoading(true);
@@ -51,6 +60,7 @@ export default function RatingFeed({ userId }: { userId: string }) {
     }
 
     const seenIds = (seen ?? []).map((r) => r.photo_id as string);
+    const friendIds = await getFriendIds();
 
     let query = supabase
       .from("photos")
@@ -80,7 +90,13 @@ export default function RatingFeed({ userId }: { userId: string }) {
     }
 
     setEmpty(false);
-    const pick = candidates[Math.floor(Math.random() * candidates.length)] as {
+
+    // Priorité aux photos des amis (fans mutuels) parmi les candidates
+    // disponibles ; on retombe sur tout le monde s'il n'y en a pas.
+    const friendCandidates = candidates.filter((c) => friendIds.has(c.owner_id as string));
+    const pool = friendCandidates.length > 0 ? friendCandidates : candidates;
+
+    const pick = pool[Math.floor(Math.random() * pool.length)] as {
       id: string;
       storage_path: string;
       owner_id: string;
@@ -98,7 +114,7 @@ export default function RatingFeed({ userId }: { userId: string }) {
       owner: normalizeProfile(pick.profiles),
     });
     setLoading(false);
-  }, [supabase, userId]);
+  }, [supabase, userId, getFriendIds]);
 
   useEffect(() => {
     loadNext();
