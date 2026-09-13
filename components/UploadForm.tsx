@@ -86,8 +86,12 @@ export default function UploadForm({ userId }: { userId: string }) {
     let toUpload: Blob;
     try {
       toUpload = await prepareImageForUpload(file, rotation);
-    } catch {
-      setError("Le traitement de l'image a échoué. Réessaie.");
+    } catch (err) {
+      const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      console.error("Traitement de l'image impossible :", err);
+      setError(
+        `Cette photo n'a pas pu être traitée sur cet appareil. Détail technique (à me transmettre si ça se reproduit) : ${detail}`
+      );
       setLoading(false);
       return;
     }
