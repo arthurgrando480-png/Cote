@@ -89,6 +89,7 @@ type PendingPhoto = {
   file: File;
   preview: string;
   rotation: number;
+  name: string;
 };
 
 export default function UploadForm({ userId }: { userId: string }) {
@@ -130,6 +131,7 @@ export default function UploadForm({ userId }: { userId: string }) {
         file: f,
         preview: URL.createObjectURL(f),
         rotation: 0,
+        name: "",
       });
       roomLeft--;
     }
@@ -157,6 +159,10 @@ export default function UploadForm({ userId }: { userId: string }) {
     );
   }
 
+  function renameItem(id: string, name: string) {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, name } : it)));
+  }
+
   async function processOne(item: PendingPhoto): Promise<"approved" | "rejected" | "failed"> {
     let blob: Blob;
     try {
@@ -172,9 +178,10 @@ export default function UploadForm({ userId }: { userId: string }) {
       .upload(path, blob, { cacheControl: "3600", upsert: false, contentType: "image/jpeg" });
     if (uploadError) return "failed";
 
+    const trimmedName = item.name.trim();
     const { data: inserted, error: insertError } = await supabase
       .from("photos")
-      .insert({ owner_id: userId, storage_path: path })
+      .insert({ owner_id: userId, storage_path: path, name: trimmedName || null })
       .select("id")
       .single();
     if (insertError || !inserted) return "failed";
@@ -256,52 +263,62 @@ export default function UploadForm({ userId }: { userId: string }) {
           <p className="text-center text-xs font-bold text-text-muted">
             {items.length} / {MAX_PHOTOS} photos sélectionnées
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="flex flex-col gap-2.5">
             {items.map((item) => (
-              <div key={item.id} className="relative aspect-[3/4] overflow-hidden rounded-xl border border-border bg-bg-page">
-                <img
-                  src={item.preview}
-                  alt="Aperçu"
-                  style={{ transform: `rotate(${item.rotation}deg)` }}
-                  className="h-full w-full object-cover transition-transform"
+              <div key={item.id} className="flex items-center gap-3">
+                <div className="relative h-20 w-[60px] flex-shrink-0 overflow-hidden rounded-xl border border-border bg-bg-page">
+                  <img
+                    src={item.preview}
+                    alt="Aperçu"
+                    style={{ transform: `rotate(${item.rotation}deg)` }}
+                    className="h-full w-full object-cover transition-transform"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeItem(item.id)}
+                    aria-label="Retirer cette photo"
+                    title="Retirer"
+                    className="absolute left-[3px] top-[3px] z-[2] flex h-[19px] w-[19px] items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[10px] w-[10px]">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => rotateItem(item.id)}
+                    aria-label="Pivoter cette photo"
+                    title="Pivoter"
+                    className="absolute right-[3px] top-[3px] z-[2] flex h-[19px] w-[19px] items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[10px] w-[10px]">
+                      <path d="M21 12a9 9 0 1 1-3.2-6.9" />
+                      <polyline points="21 3 21 9 15 9" />
+                    </svg>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={item.name}
+                  onChange={(e) => renameItem(item.id, e.target.value)}
+                  maxLength={60}
+                  placeholder="Nom de la photo (facultatif)"
+                  className="min-w-0 flex-1 rounded-xl border border-border bg-bg px-3.5 py-2.5 text-sm text-text outline-none focus:border-brand-solid"
                 />
-                <button
-                  type="button"
-                  onClick={() => removeItem(item.id)}
-                  aria-label="Retirer cette photo"
-                  title="Retirer"
-                  className="absolute left-1 top-1 z-[2] flex h-[22px] w-[22px] items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[11px] w-[11px]">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => rotateItem(item.id)}
-                  aria-label="Pivoter cette photo"
-                  title="Pivoter"
-                  className="absolute right-1 top-1 z-[2] flex h-[22px] w-[22px] items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-[12px] w-[12px]">
-                    <path d="M21 12a9 9 0 1 1-3.2-6.9" />
-                    <polyline points="21 3 21 9 15 9" />
-                  </svg>
-                </button>
               </div>
             ))}
             {canAddMore && (
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                aria-label="Ajouter des photos"
-                className="flex aspect-[3/4] items-center justify-center rounded-xl border-2 border-dashed border-border-strong bg-bg-page text-text-faint transition-colors hover:border-brand-solid hover:text-brand-solid"
+                className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border-strong bg-bg-page py-3 text-sm font-bold text-text-faint transition-colors hover:border-brand-solid hover:text-brand-solid"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
+                Ajouter des photos
               </button>
             )}
           </div>

@@ -112,10 +112,10 @@ export default function ProfileGrid({
               </span>
             )}
             {photo.moderationStatus === "approved" && (
-              <span className="pointer-events-none absolute bottom-1.5 left-1.5 flex items-baseline gap-1 rounded-full bg-black/55 px-2 py-[3px] text-[11px] font-extrabold text-white backdrop-blur-sm [font-variant-numeric:tabular-nums]">
-                {photo.score !== null ? photo.score.toFixed(1) : "—"}
+              <span className="pointer-events-none absolute bottom-1.5 left-1.5 flex items-baseline gap-1 rounded-full bg-black/55 px-2 py-[3px] text-[11px] font-extrabold backdrop-blur-sm [font-variant-numeric:tabular-nums]">
+                <span className="brand-text">{photo.score !== null ? photo.score.toFixed(1) : "—"}</span>
                 {photo.votes > 0 && (
-                  <span className="text-[9px] font-semibold opacity-80">· {photo.votes}</span>
+                  <span className="text-[9px] font-semibold text-white opacity-80">· {photo.votes}</span>
                 )}
               </span>
             )}
@@ -141,35 +141,38 @@ export default function ProfileGrid({
               </svg>
             </button>
           </div>
-          <div className="relative flex flex-1 items-center justify-center overflow-hidden px-5">
+          <div className="flex flex-1 items-center justify-center overflow-hidden px-5">
             <img src={detail.url} alt="" className="max-h-full max-w-full rounded-2xl object-contain shadow-lg" />
-            {editable && (
-              <button
-                type="button"
-                onClick={() => setShowStats(true)}
-                className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full border border-border bg-bg px-4 py-2.5 text-xs font-bold text-text shadow-lg"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[15px] w-[15px]">
-                  <line x1="18" y1="20" x2="18" y2="10" />
-                  <line x1="12" y1="20" x2="12" y2="4" />
-                  <line x1="6" y1="20" x2="6" y2="14" />
-                </svg>
-                Statistiques
-              </button>
-            )}
           </div>
-          <div className="px-6 pb-8 pt-2 text-center">
-            <div className="text-[42px] font-extrabold tracking-tight [font-variant-numeric:tabular-nums]">
-              {detail.score !== null ? (
-                <>
-                  {detail.score.toFixed(1)}
-                  <span className="text-lg font-bold text-text-faint">/10</span>
-                </>
-              ) : (
-                "—"
+          <div className="flex flex-col items-center gap-0.5 px-6 pb-8 pt-2">
+            <div className="flex items-center justify-center gap-2.5">
+              <span className="brand-text text-[34px] font-extrabold tracking-tight [font-variant-numeric:tabular-nums]">
+                {detail.score !== null ? (
+                  <>
+                    {detail.score.toFixed(1)}
+                    <span className="text-[15px] font-bold text-text-faint [-webkit-text-fill-color:var(--color-text-faint)]">/10</span>
+                  </>
+                ) : (
+                  "—"
+                )}
+              </span>
+              {editable && (
+                <button
+                  type="button"
+                  onClick={() => setShowStats(true)}
+                  aria-label="Statistiques"
+                  title="Statistiques"
+                  className="flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-full border border-border-strong bg-bg text-text"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                    <line x1="18" y1="20" x2="18" y2="10" />
+                    <line x1="12" y1="20" x2="12" y2="4" />
+                    <line x1="6" y1="20" x2="6" y2="14" />
+                  </svg>
+                </button>
               )}
             </div>
-            <div className="mt-0.5 text-[13px] font-semibold text-text-muted">
+            <div className="text-[13px] font-semibold text-text-muted">
               {detail.score !== null
                 ? `${detail.votes} vote${detail.votes > 1 ? "s" : ""}`
                 : "En attente de votes"}
@@ -179,26 +182,25 @@ export default function ProfileGrid({
       )}
 
       {detail && showStats && (
-        <div className="fixed inset-0 z-[110] flex flex-col bg-bg">
-          <div className="flex items-center justify-between p-3.5">
-            <button
-              type="button"
-              onClick={() => setShowStats(false)}
-              aria-label="Retour à la photo"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-bg-page text-text-muted"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
-                <line x1="19" y1="12" x2="5" y2="12" />
-                <polyline points="12 19 5 12 12 5" />
-              </svg>
-            </button>
-            <span className="text-base font-extrabold text-text">Statistiques</span>
-            <span className="w-9" />
-          </div>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 px-7">
+          <div className="flex w-full max-w-[280px] flex-col gap-2.5 rounded-2xl bg-bg p-[18px] shadow-2xl">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] font-extrabold text-text">Répartition des votes</span>
+              <button
+                type="button"
+                onClick={() => setShowStats(false)}
+                aria-label="Fermer"
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-bg-page text-text-muted"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
 
-          <div className="flex flex-1 flex-col justify-center gap-2.5 overflow-y-auto px-6 py-4">
             {detail.votes === 0 ? (
-              <p className="text-center text-sm text-text-faint">
+              <p className="py-2 text-center text-sm text-text-faint">
                 Pas encore de vote sur cette photo.
               </p>
             ) : (
@@ -206,17 +208,17 @@ export default function ProfileGrid({
                 const count = detail.distribution[score - 1] ?? 0;
                 const pct = (count / maxCount) * 100;
                 return (
-                  <div key={score} className="flex items-center gap-3">
-                    <span className="w-4 flex-shrink-0 text-right text-xs font-bold text-text-muted [font-variant-numeric:tabular-nums]">
+                  <div key={score} className="flex items-center gap-2">
+                    <span className="brand-text w-3.5 flex-shrink-0 text-right text-[11px] font-extrabold [font-variant-numeric:tabular-nums]">
                       {score}
                     </span>
-                    <div className="h-3 flex-1 overflow-hidden rounded-full bg-bg-page">
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg-page">
                       <div
                         className="brand-gradient h-full rounded-full transition-all"
-                        style={{ width: `${count > 0 ? Math.max(pct, 4) : 0}%` }}
+                        style={{ width: `${count > 0 ? Math.max(pct, 6) : 0}%` }}
                       />
                     </div>
-                    <span className="w-5 flex-shrink-0 text-xs font-bold text-text-faint [font-variant-numeric:tabular-nums]">
+                    <span className="w-4 flex-shrink-0 text-[10px] font-bold text-text-faint [font-variant-numeric:tabular-nums]">
                       {count}
                     </span>
                   </div>

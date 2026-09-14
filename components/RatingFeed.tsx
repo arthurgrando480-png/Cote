@@ -168,13 +168,13 @@ export default function RatingFeed({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="relative flex-1 overflow-hidden bg-bg-page">
+    <div className="relative flex-1 overflow-hidden bg-black">
       {photo && (
         <img
           src={photo.url}
           alt="Photo à noter"
           onClick={() => setPreviewOpen(true)}
-          className="absolute inset-0 h-full w-full cursor-zoom-in object-cover transition-opacity duration-150"
+          className="absolute inset-0 h-full w-full cursor-zoom-in object-contain transition-opacity duration-150"
         />
       )}
 

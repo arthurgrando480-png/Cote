@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AvatarUpload from "@/components/AvatarUpload";
 import ProfileGrid, { type GridPhoto } from "@/components/ProfileGrid";
 import PendingPhotoRetry from "@/components/PendingPhotoRetry";
+import RelationsSummary from "@/components/RelationsSummary";
 
 type PhotoStatsRow = {
   photo_id: string;
@@ -78,6 +80,10 @@ export default async function ProfilePage() {
           </h1>
         </div>
       </div>
+
+      <Suspense fallback={null}>
+        <RelationsSummary userId={user.id} />
+      </Suspense>
 
       <ProfileGrid photos={gridPhotos} editable />
     </div>
